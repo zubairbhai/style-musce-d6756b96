@@ -1,0 +1,10 @@
+project_id = "gddxkizvqyjzqvkquvfa"
+
+[functions.stylist-chat]
+verify_jwt = false
+
+[functions.generate-outfit]
+verify_jwt = false
+
+[functions.generate-trends]
+verify_jwt = false
