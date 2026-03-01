@@ -10,6 +10,7 @@ import AIStylistChat from "./pages/AIStylistChat";
 import OutfitGenerator from "./pages/OutfitGenerator";
 import Lookbook from "./pages/Lookbook";
 import TrendExplorer from "./pages/TrendExplorer";
+import OutfitAnalyzer from "./pages/OutfitAnalyzer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/generator" element={<OutfitGenerator />} />
           <Route path="/lookbook" element={<Lookbook />} />
           <Route path="/trends" element={<TrendExplorer />} />
+          <Route path="/analyzer" element={<OutfitAnalyzer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
