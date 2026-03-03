@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sparkles, User, LogIn } from "lucide-react";
+import { Menu, X, Sparkles, User, LogIn, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -20,6 +21,7 @@ const Navbar = () => {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -44,6 +46,14 @@ const Navbar = () => {
               {item.label}
             </Link>
           ))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           {user ? (
             <Link to="/profile" className="ml-2 p-2 rounded-full hover:bg-secondary transition-colors">
               <User className="h-5 w-5 text-accent" />
