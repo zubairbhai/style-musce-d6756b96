@@ -1,70 +1,35 @@
-# StyleSense – GenAI-Powered Fashion Recommendation System
 
-A smart fashion advisor that helps users discover outfit ideas, get styling tips, and receive personalized recommendations using AI.
 
----
+## Plan: Add Gender Selection + OpenRouter for Text Generation
 
-## Pages & Features
+### Overview
+Add a male/female gender toggle to the Outfit Generator UI and switch the text generation backend from Lovable AI to OpenRouter's free `arcee-ai/trinity-large-preview:free` model. Image generation stays on Lovable AI.
 
-### 1. Landing Page
+### Changes
 
-- Bold hero section with fashion imagery and tagline ("Your AI Stylist, Always Ready")
-- Feature highlights: AI Outfit Suggestions, Style Quiz, Wardrobe Assistant
-- Call-to-action to start the Style Quiz or jump into the AI Stylist chat
+#### 1. Store the OpenRouter API key as a secret
+- Use the `add_secret` tool to store `OPENROUTER_API_KEY` with the provided key so the edge function can access it securely.
 
-### 2. Style Quiz
+#### 2. Update the Edge Function (`supabase/functions/generate-outfit/index.ts`)
+- Accept a new `gender` parameter from the request body.
+- Inject gender into the prompt (e.g., "Generate a complete **men's/women's** outfit recommendation...").
+- Replace the Lovable AI text generation call with an OpenRouter call:
+  - Endpoint: `https://openrouter.ai/api/v1/chat/completions`
+  - Model: `arcee-ai/trinity-large-preview:free`
+  - Auth: `Bearer ${OPENROUTER_API_KEY}`
+- Keep the image generation section unchanged (Lovable AI with `google/gemini-2.5-flash-image`).
 
-- Multi-step interactive quiz (4-5 steps) asking about:
-  - Preferred style (casual, formal, streetwear, bohemian, minimalist, etc.)
-  - Favorite colors and patterns
-  - Body type & fit preferences
-  - Occasions they dress for most (work, date night, weekend, etc.)
-- Results in a personalized "Style Profile" card summarizing their preferences
-- Style profile is saved locally and used to personalize AI recommendations
+#### 3. Update the Frontend (`src/pages/OutfitGenerator.tsx`)
+- Add a gender state (`"male" | "female"`) defaulting to empty.
+- Add a gender selector row above or alongside the existing selectors -- two toggle-style buttons or a Select dropdown for "Male" / "Female".
+- Pass `gender` in the request body to the edge function.
+- Make gender required alongside occasion and season for the Generate button to be enabled.
 
-### 3. AI Stylist Chat
+#### 4. Update `supabase/config.toml`
+- Add `[functions.fetch-fashion-articles]` entry if missing (noticed it's not listed but the function exists).
 
-- Full-featured chat interface with streaming AI responses
-- Users describe an occasion, mood, or ask for outfit advice
-- AI responds with detailed outfit suggestions including clothing items, colors, accessories, and styling tips
-- AI generates outfit mood board images using image generation
-- Markdown-rendered responses for rich formatting
-- Chat history within the session
+### Technical Details
+- OpenRouter API is OpenAI-compatible, so the fetch call structure is nearly identical -- just swap the URL, auth header, and model name.
+- The free tier model has no cost but may have rate limits; existing error handling for 429 will cover this.
+- Gender-aware prompt will adjust clothing items (e.g., suits vs dresses, men's vs women's accessories).
 
-### 4. Outfit Generator
-
-- Users select parameters: occasion, season, color palette, style vibe
-- AI generates a complete outfit recommendation with:
-  - Visual mood board image (AI-generated)
-  - Item-by-item breakdown (top, bottom, shoes, accessories)
-  - Styling tips and alternatives
-- "Regenerate" button for new suggestions
-- Save favorite outfits to a local collection
-
-### 5. Saved Outfits / Lookbook
-
-- Grid gallery of saved outfit recommendations
-- Each card shows the AI-generated image and outfit summary
-- Delete or re-visit saved looks
-
-### 6. Trend Explorer
-
-- AI-generated content about current fashion trends
-- Categories: Seasonal, Street Style, Workwear, Evening
-- Each trend card with AI-generated imagery and description
-- searching google for fetching image with suggested outfit final
-
----
-
-## Design & UX
-
-- Elegant, fashion-forward design with clean typography  Warm neutral color palette with accent colors (blush pink, soft gold, charcoal)
-- Smooth animations and transitions between sections
-- Fully responsive — mobile-first approach
-- Dark mode support
-
-## Backend (Lovable Cloud)
-
-- Edge function for AI chat (streaming) using Lovable AI
-- Edge function for outfit generation (with image generation via Gemini)
-- Edge function for trend content generation
