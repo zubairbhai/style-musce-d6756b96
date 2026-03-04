@@ -103,63 +103,27 @@ const AIStylistChat = () => {
 
   // ─── Full Analysis Pipeline ────────────────────────────────────────
 
-  const runAnalysisPipeline = async (imageUrl: string, imageDataUrl: string) => {
+  const runAnalysisPipeline = async (_imageUrl: string, imageDataUrl: string) => {
     setAnalysisPhase("analyzing");
-    addMessage("assistant", "🔍 **Analyzing your outfit** using AI vision models...\n\n_Detecting clothing, body type, and accessories..._");
+    addMessage("assistant", "🔍 **Analyzing your outfit** — scanning zones, extracting colors, classifying style...\n\n_This runs 100% client-side — free & unlimited!_");
 
-    // Step 1: Call edge function for HF model analysis
-    const resp = await fetch(ANALYZE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ imageUrl }),
-    });
-
-    if (!resp.ok) throw new Error("Analysis failed");
-    let rawAnalysis: RawAnalysis;
-    try {
-      rawAnalysis = await resp.json();
-    } catch {
-      rawAnalysis = {
-        skin_tone: null,
-        body_type: "Unknown",
-        outfit: [],
-        accessories: [],
-        clothing_items: [],
-        object_detections: [],
-        style_classifications: [],
-        body_attributes: { person_detected: false, person_box: null },
-        raw_segmentation_labels: [],
-        has_face_region: false,
-        has_skin_region: false,
-      };
-    }
+    // Full client-side multi-zone analysis (no API calls needed)
+    const structured = await runFullClientAnalysis(imageDataUrl);
 
     setAnalysisPhase("extracting-colors");
-    updateLastAssistant("🎨 **Extracting colors and skin tone...**\n\n_Sampling face region and clothing colors..._");
+    updateLastAssistant("🎨 **Building your complete style profile...**\n\n_Classifying garments, detecting accessories, mapping color palette..._");
 
-    // Step 2: Client-side skin tone extraction
-    const skinTone: SkinTone = await extractSkinTone(
-      imageDataUrl,
-      rawAnalysis?.body_attributes?.person_box
-    );
-
-    // Step 3: Client-side dominant color extraction for clothing
-    const outfitColor = await extractRegionColor(imageDataUrl);
-
-    // Step 4: Build structured analysis
-    const structured = buildStructuredAnalysis(rawAnalysis, skinTone, [outfitColor]);
+    // Small delay for UX
+    await new Promise((r) => setTimeout(r, 400));
 
     setCurrentAnalysis(structured);
-    setCurrentImageUrl(imageUrl);
+    setCurrentImageUrl(_imageUrl);
     setAnalysisPhase("results");
 
-    // Replace the loading message with analysis results
+    // Replace loading message with rich analysis
     setMessages((prev) => {
       const filtered = prev.filter(
-        (m) => !(m.role === "assistant" && (m.content.includes("Analyzing") || m.content.includes("Extracting")))
+        (m) => !(m.role === "assistant" && (m.content.includes("Analyzing") || m.content.includes("Building")))
       );
       return [
         ...filtered,
@@ -171,7 +135,6 @@ const AIStylistChat = () => {
       ];
     });
 
-    // After a brief moment, show the intent question
     setTimeout(() => {
       setAnalysisPhase("asking-intent");
       addMessage("assistant", "");
