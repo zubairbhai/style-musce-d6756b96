@@ -596,21 +596,61 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
   };
 
   const formatAnalysisResults = (a: StructuredAnalysis): string => {
-    let md = `## 🔬 Analysis Complete\n\n`;
+    let md = `## 🔍 High-Level Outfit Summary\n\n`;
     md += `| Attribute | Detected |\n|---|---|\n`;
+    if (a.outfit_type) md += `| 👔 **Outfit Type** | ${a.outfit_type} |\n`;
+    if (a.gender_expression) md += `| 👤 **Fit Expression** | ${a.gender_expression} |\n`;
+    if (a.season) md += `| 🍂 **Season** | ${a.season} |\n`;
+    if (a.style_vibe) md += `| ✨ **Style Vibe** | ${a.style_vibe} |\n`;
+    if (a.color_strategy) md += `| 🎯 **Color Strategy** | ${a.color_strategy} |\n`;
     md += `| 🎨 **Skin Tone** | ${a.skin_tone.category} \`${a.skin_tone.hex}\` |\n`;
     md += `| 🏋️ **Body Type** | ${a.body_type} |\n`;
+    if (a.layering_level) md += `| 🧅 **Layering** | ${a.layering_level} |\n`;
+    if (a.formality_score) md += `| 📐 **Formality** | ${a.formality_score}/10 |\n`;
+    if (a.boldness_score) md += `| 🔥 **Boldness** | ${a.boldness_score}/10 |\n`;
+    md += "\n";
 
+    // Individual garment breakdown
     if (a.outfit.length > 0) {
-      md += `\n### 👕 Outfit Items\n`;
-      for (const item of a.outfit) {
-        md += `- **${item.type}** — ${item.dominant_color} \`${item.hex}\`\n`;
-      }
+      a.outfit.forEach((item, idx) => {
+        const emoji = item.zone?.toLowerCase().includes("outer") || item.zone?.toLowerCase().includes("top")
+          ? "🧥" : item.zone?.toLowerCase().includes("shirt") || item.zone?.toLowerCase().includes("mid")
+          ? "👕" : item.zone?.toLowerCase().includes("bottom")
+          ? "👖" : item.zone?.toLowerCase().includes("foot")
+          ? "👢" : "👔";
+        md += `### ${emoji} ${idx + 1}. ${item.zone || "Clothing Item"}\n\n`;
+        md += `| Detail | Value |\n|---|---|\n`;
+        md += `| **Item** | ${item.type} |\n`;
+        md += `| **Primary Color** | ${item.dominant_color} \`${item.hex}\` |\n`;
+        if (item.fit) md += `| **Fit** | ${item.fit} |\n`;
+        if (item.material_guess) md += `| **Material (Est.)** | ${item.material_guess} |\n`;
+        if (item.confidence) md += `| **Confidence** | ${Math.round(item.confidence * 100)}% |\n`;
+        md += "\n";
+        if (item.description) md += `> ${item.description}\n\n`;
+      });
     }
 
+    // Accessories
     if (a.accessories.length > 0) {
-      md += `\n### ⌚ Accessories Detected\n`;
-      md += a.accessories.map((acc) => `- ${acc}`).join("\n") + "\n";
+      md += `### 🧣 Accessories\n\n`;
+      for (const acc of a.accessories) {
+        md += `- ${acc}\n`;
+      }
+      md += "\n";
+    }
+
+    // Color palette
+    if (a.color_palette) {
+      md += `### 🎨 Color Palette\n\n`;
+      md += "```json\n";
+      md += JSON.stringify(a.color_palette, null, 2);
+      md += "\n```\n\n";
+    }
+
+    // Style tags
+    if (a.style_tags && a.style_tags.length > 0) {
+      md += `### 🏷 Style Tags\n\n`;
+      md += a.style_tags.map(t => `\`${t}\``).join("  ") + "\n\n";
     }
 
     return md;
