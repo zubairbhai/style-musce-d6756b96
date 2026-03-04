@@ -10,14 +10,10 @@ import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  extractSkinTone,
-  extractRegionColor,
-  buildStructuredAnalysis,
+  runFullClientAnalysis,
   OCCASION_OPTIONS,
-  type RawAnalysis,
   type StructuredAnalysis,
   type UserIntent,
-  type SkinTone,
 } from "@/lib/imageAnalysis";
 
 // ─── Types ───────────────────────────────────────────────────────────
