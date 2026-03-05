@@ -218,8 +218,7 @@ async function segmentImage(imageBytes: ArrayBuffer, token: string) {
   return await response.json();
 }
 
-async function detectFaces(imageBytes: Uint8Array, token: string) {
-  const blob = new Blob([imageBytes], { type: "application/octet-stream" });
+async function detectFaces(imageBytes: ArrayBuffer, token: string) {
   const response = await fetch(`${HF_API_URL}/google/vit-base-patch16-224`, {
     method: "POST",
     headers: {
