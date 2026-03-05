@@ -21,18 +21,19 @@ interface Product {
 }
 
 async function handleProductSearch(query: string, limit: number): Promise<Response> {
-  // Clean up query - remove numbered prefixes like "1. The Top:" 
+  // Clean up query: remove prefixes, trailing periods, "A/An" starters, "or" alternatives
   const cleanQuery = query
     .replace(/^\d+\.\s*/, "")
     .replace(/^The\s+\w+:\s*/i, "")
+    .replace(/^An?\s+/i, "")
+    .replace(/\s+or\s+.+$/i, "") // pick first option before "or"
+    .replace(/\s+in\s+a\s+.+$/i, "") // remove "in a crisp poplin cotton"
+    .replace(/[.]+$/, "")
     .trim();
 
   console.log("Searching products (cleaned):", cleanQuery);
 
-  // Generate Google Shopping search links as reliable product results
-  const searchUrl = `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(cleanQuery)}`;
-  
-  // Try RapidAPI first, fall back to Google Shopping links
+  // Try RapidAPI first
   const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
   
   if (RAPIDAPI_KEY) {
@@ -104,12 +105,13 @@ async function handleProductSearch(query: string, limit: number): Promise<Respon
     }
   }
 
-  // Fallback: return a Google Shopping link so the user can still find products
+  // Fallback: Amazon search links (works in iframes, unlike Google)
+  const amazonUrl = `https://www.amazon.in/s?k=${encodeURIComponent(cleanQuery)}`;
   const fallbackProducts: Product[] = [{
-    title: `Shop: ${cleanQuery}`,
-    price: "Browse results",
+    title: cleanQuery,
+    price: "View on Amazon",
     image: "",
-    link: searchUrl,
+    link: amazonUrl,
   }];
 
   return new Response(
