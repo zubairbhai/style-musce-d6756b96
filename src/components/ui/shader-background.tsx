@@ -53,77 +53,74 @@ export default function ShaderBackground() {
         float t = iTime * 0.22;
 
         /* ── deeper background for better neon contrast ── */
-        vec3 bg = vec3(0.01, 0.005, 0.02);
+        vec3 bg = vec3(0.005, 0.002, 0.01);
 
-        /* ── neon golden shining palette ── */
-        vec3 neonGold = vec3(1.0, 0.85, 0.2);     /* primary neon gold */
-        vec3 shiningWhite = vec3(1.0, 0.95, 0.8); /* white-hot highlights */
-        vec3 amberGlow = vec3(1.0, 0.5, 0.1);    /* deep amber core */
+        /* ── dual-neon palette ── */
+        vec3 neonGold = vec3(1.0, 0.85, 0.2);
+        vec3 shiningWhite = vec3(1.0, 0.98, 0.9);
+        vec3 amberGlow = vec3(1.0, 0.4, 0.1);
+
+        vec3 neonPink = vec3(1.0, 0.2, 0.7);      /* vibrant neon pink */
+        vec3 pinkWhite = vec3(1.0, 0.9, 0.95);    /* pink-hot highlight */
+        vec3 magentaGlow = vec3(0.8, 0.1, 0.5);   /* deep magenta glow */
 
         vec3 totalColor = vec3(0.0);
 
-        /* ──── wave layer 1 — main shining neon wave ──── */
-        float w1 = sin(p.x * 2.5 + t * 1.5) * 0.25 
-                 + sin(p.x * 5.0 - t * 1.2) * 0.10;
+        /* ──── wave 1 — neon golden (top) ──── */
+        float w1 = sin(p.x * 2.2 + t * 1.3) * 0.22 + 0.4;
         float d1 = abs(p.y - w1);
-        
-        // sharp shining peak
-        float peak1 = smoothstep(0.012, 0.0, d1);
-        // neon core glow
-        float glow1 = exp(-d1 * 15.0) * 0.8;
-        // broad ambient glow
-        float amb1 = exp(-d1 * 3.0) * 0.3;
-        
-        totalColor += neonGold * glow1;
-        totalColor += shiningWhite * peak1 * 1.2; // intense highlight
-        totalColor += amberGlow * amb1 * 0.5;
+        totalColor += neonGold * exp(-d1 * 14.0) * 0.8;
+        totalColor += shiningWhite * smoothstep(0.012, 0.0, d1) * 1.1;
+        totalColor += amberGlow * exp(-d1 * 3.0) * 0.2;
 
-        /* ──── wave layer 2 — secondary flowing wave ──── */
-        float w2 = cos(p.x * 3.5 - t * 2.1) * 0.20 
-                 + sin(p.x * 2.0 + t * 0.8) * 0.15;
-        float d2 = abs(p.y - w2 + 0.3);
-        
-        float peak2 = smoothstep(0.01, 0.0, d2);
-        float glow2 = exp(-d2 * 12.0) * 0.6;
-        float amb2 = exp(-d2 * 4.0) * 0.2;
-        
-        totalColor += neonGold * glow2 * 0.8;
-        totalColor += shiningWhite * peak2 * 1.0;
-        totalColor += amberGlow * amb2 * 0.4;
+        /* ──── wave 2 — neon pink (mid-top) ──── */
+        float w2 = sin(p.x * 3.1 - t * 1.8) * 0.18 + 0.1;
+        float d2 = abs(p.y - w2);
+        totalColor += neonPink * exp(-d2 * 16.0) * 0.9;
+        totalColor += pinkWhite * smoothstep(0.01, 0.0, d2) * 1.2;
+        totalColor += magentaGlow * exp(-d2 * 3.5) * 0.3;
 
-        /* ──── wave layer 3 — soft background drift ──── */
-        float w3 = sin(p.x * 1.8 + t * 0.6) * 0.35;
-        float d3 = abs(p.y - w3 - 0.4);
-        float glow3 = exp(-d3 * 8.0) * 0.4;
-        totalColor += neonGold * glow3 * 0.3;
+        /* ──── wave 3 — neon golden (mid-bottom) ──── */
+        float w3 = cos(p.x * 2.8 + t * 1.1) * 0.20 - 0.2;
+        float d3 = abs(p.y - w3);
+        totalColor += neonGold * exp(-d3 * 15.0) * 0.7;
+        totalColor += shiningWhite * smoothstep(0.012, 0.0, d3) * 1.0;
+        totalColor += amberGlow * exp(-d3 * 3.0) * 0.2;
 
-        /* ──── shimmering sparkle particles ──── */
+        /* ──── wave 4 — neon pink (bottom) ──── */
+        float w4 = sin(p.x * 1.9 - t * 0.9) * 0.25 - 0.5;
+        float d4 = abs(p.y - w4);
+        totalColor += neonPink * exp(-d4 * 14.0) * 0.8;
+        totalColor += pinkWhite * smoothstep(0.011, 0.0, d4) * 1.1;
+        totalColor += magentaGlow * exp(-d4 * 3.0) * 0.2;
+
+        /* ──── dual-color shimmering sparkles ──── */
         for (int i = 0; i < 16; i++) {
           float fi = float(i);
-          float speed = 0.3 + hash(fi) * 0.4;
+          float speed = 0.2 + hash(fi) * 0.5;
           vec2 spPos = vec2(
-            sin(t * speed + fi * 1.5) * aspect * 0.9,
-            cos(t * (speed * 0.8) + fi * 2.1) * 0.9
+            sin(t * speed + fi * 2.3) * aspect * 0.9,
+            cos(t * (speed * 0.7) + fi * 1.7) * 0.9
           );
           
           float spDist = length(p - spPos);
-          // Twinkle effect
-          float twinkle = sin(t * 5.0 + fi) * 0.5 + 0.5;
-          float spGlow = smoothstep(0.025, 0.0, spDist) * (0.6 + 0.4 * twinkle);
-          float spPeak = smoothstep(0.008, 0.0, spDist) * twinkle;
+          float twinkle = sin(t * 4.0 + fi) * 0.5 + 0.5;
           
-          totalColor += neonGold * spGlow * 0.6;
-          totalColor += shiningWhite * spPeak * 1.5;
+          // toggle color based on index
+          vec3 pColor = (mod(fi, 2.0) == 0.0) ? neonGold : neonPink;
+          vec3 pWhite = (mod(fi, 2.0) == 0.0) ? shiningWhite : pinkWhite;
+          
+          totalColor += pColor * smoothstep(0.025, 0.0, spDist) * 0.5 * twinkle;
+          totalColor += pWhite * smoothstep(0.008, 0.0, spDist) * 1.2 * twinkle;
         }
 
-        /* ── simple vignette ── */
+        /* ── vignette ── */
         float vig = 1.0 - length(uv - 0.5) * 1.1;
         totalColor *= clamp(vig, 0.0, 1.0);
 
-        /* output with tone mapping for 'neon' punch */
+        /* final exposure mapping */
         vec3 finalColor = bg + totalColor;
-        // high-exposure look for "shining"
-        finalColor = 1.0 - exp(-finalColor * 1.5); 
+        finalColor = 1.0 - exp(-finalColor * 1.6); 
         
         gl_FragColor = vec4(finalColor, 1.0);
       }
