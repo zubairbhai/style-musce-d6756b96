@@ -334,8 +334,8 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
       const norm = q.toLowerCase().replace(/\s+/g, " ").trim();
       // Skip if we already have a very similar query
       const isDupe = [...seen].some((s) => {
-        return s.includes(norm) || norm.includes(s) || 
-               (norm.split(" ").length > 1 && s.split(" ").slice(-1)[0] === norm.split(" ").slice(-1)[0]);
+        return s.includes(norm) || norm.includes(s) ||
+          (norm.split(" ").length > 1 && s.split(" ").slice(-1)[0] === norm.split(" ").slice(-1)[0]);
       });
       if (!isDupe && norm.length > 3) {
         seen.add(norm);
@@ -453,6 +453,18 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
         if (seen.has(p.link)) return false;
         seen.add(p.link);
         return true;
+      }).map((p) => {
+        // Fix Google Shopping links which get blocked (ERR_BLOCKED_BY_RESPONSE)
+        if (p.link.includes("google.com/search") || p.link.includes("google.com/shopping")) {
+          const queryMatch = p.link.match(/[?&]q=([^&]+)/);
+          const searchTerm = queryMatch ? decodeURIComponent(queryMatch[1]) : p.title;
+          return {
+            ...p,
+            link: `https://www.amazon.in/s?k=${encodeURIComponent(searchTerm)}`,
+            price: p.price === "Browse results" ? "View on Amazon" : p.price,
+          };
+        }
+        return p;
       }).slice(0, 8);
 
       // Replace loading message with products
@@ -1120,9 +1132,8 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
             src={product.image}
             alt={product.title}
             loading="lazy"
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
-              imgStatus === "loaded" ? "opacity-100" : "opacity-0"
-            }`}
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imgStatus === "loaded" ? "opacity-100" : "opacity-0"
+              }`}
             onLoad={() => setImgStatus("loaded")}
             onError={() => setImgStatus("error")}
           />
@@ -1153,6 +1164,21 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 }
 
 function ProductGrid({ products }: { products: Product[] }) {
+  const getShopIcon = (link: string): string => {
+    if (link.includes("amazon")) return "🛒";
+    if (link.includes("flipkart")) return "🏪";
+    if (link.includes("myntra")) return "👗";
+    if (link.includes("ajio")) return "🧥";
+    return "🛍️";
+  };
+
+  const isFallbackProduct = (product: Product): boolean => {
+    return !product.image && (
+      product.price.toLowerCase().includes("view on") ||
+      product.price.toLowerCase().includes("browse")
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}

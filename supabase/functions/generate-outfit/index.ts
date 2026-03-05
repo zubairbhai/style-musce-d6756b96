@@ -33,9 +33,9 @@ async function handleProductSearch(query: string, limit: number): Promise<Respon
 
   console.log("Searching products (cleaned):", cleanQuery);
 
-  // Try RapidAPI first
+  // Try RapidAPI first, fall back to direct shopping site links
   const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
-  
+
   if (RAPIDAPI_KEY) {
     try {
       const url = new URL("https://real-time-product-search.p.rapidapi.com/search");
@@ -105,17 +105,31 @@ async function handleProductSearch(query: string, limit: number): Promise<Respon
     }
   }
 
-  // Fallback: Amazon search links (works in iframes, unlike Google)
-  const amazonUrl = `https://www.amazon.in/s?k=${encodeURIComponent(cleanQuery)}`;
-  const fallbackProducts: Product[] = [{
-    title: cleanQuery,
-    price: "View on Amazon",
-    image: "",
-    link: amazonUrl,
-  }];
+  // Fallback: return direct links to popular shopping sites
+  const encodedQuery = encodeURIComponent(cleanQuery);
+  const fallbackProducts: Product[] = [
+    {
+      title: `${cleanQuery} — Amazon`,
+      price: "View on Amazon",
+      image: "",
+      link: `https://www.amazon.in/s?k=${encodedQuery}`,
+    },
+    {
+      title: `${cleanQuery} — Flipkart`,
+      price: "View on Flipkart",
+      image: "",
+      link: `https://www.flipkart.com/search?q=${encodedQuery}`,
+    },
+    {
+      title: `${cleanQuery} — Myntra`,
+      price: "View on Myntra",
+      image: "",
+      link: `https://www.myntra.com/${encodedQuery.replace(/%20/g, "-")}`,
+    },
+  ];
 
   return new Response(
-    JSON.stringify({ products: fallbackProducts, query: cleanQuery }),
+    JSON.stringify({ products: fallbackProducts, query: cleanQuery, fallback: true }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
