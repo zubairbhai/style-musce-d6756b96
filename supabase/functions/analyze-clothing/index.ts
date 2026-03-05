@@ -280,7 +280,7 @@ serve(async (req) => {
     // Fetch the image as bytes
     const imgResp = await fetch(imageUrl);
     if (!imgResp.ok) throw new Error("Failed to fetch image");
-    const imageBytes = new Uint8Array(await imgResp.arrayBuffer());
+    const imageBytes = await imgResp.arrayBuffer();
 
     // Run detection, classification, and segmentation in parallel
     const [detections, classifications, segmentation] = await Promise.all([
