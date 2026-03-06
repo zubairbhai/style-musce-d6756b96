@@ -1025,64 +1025,45 @@ function ProductPromptCard({ onYes, onNo }: { onYes: () => void; onNo: () => voi
 // ─── Product Grid ────────────────────────────────────────────────────
 
 function ProductCard({ product, index }: { product: Product; index: number }) {
-  const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">(
-    product.image ? "loading" : "error"
-  );
-
   return (
-    <motion.a
-      href={product.link}
-      target="_blank"
-      rel="noopener noreferrer"
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08 }}
-      className="group block rounded-xl overflow-hidden border border-border/50
-                 bg-background/60 hover:bg-background/80
-                 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5
-                 transition-all duration-250 hover:scale-[1.02]"
+      transition={{ delay: index * 0.1 }}
+      className="rounded-xl overflow-hidden border border-border/50 bg-background/60"
     >
-      {/* Product image */}
-      <div className="aspect-[4/3] w-full overflow-hidden bg-secondary/20 relative">
-        {imgStatus === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-secondary/30 animate-pulse">
-            <Loader2 className="h-5 w-5 text-muted-foreground/40 animate-spin" />
-          </div>
-        )}
-        {product.image && imgStatus !== "error" && (
-          <img
-            src={product.image}
-            alt={product.title}
-            loading="lazy"
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
-              imgStatus === "loaded" ? "opacity-100" : "opacity-0"
-            }`}
-            onLoad={() => setImgStatus("loaded")}
-            onError={() => setImgStatus("error")}
-          />
-        )}
-        {imgStatus === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-secondary/30">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground/30" />
-            <span className="text-[10px] text-muted-foreground/40">No preview</span>
-          </div>
-        )}
-        {/* Price badge overlay */}
-        <div className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm rounded-md px-2 py-0.5">
-          <span className="text-xs font-bold text-emerald-400">{product.price}</span>
+      {/* Item title header */}
+      <div className="px-3 py-2.5 bg-secondary/40 border-b border-border/30">
+        <div className="flex items-center gap-2">
+          <Shirt className="h-4 w-4 text-accent shrink-0" />
+          <p className="text-xs font-semibold leading-tight line-clamp-2">{product.title}</p>
         </div>
       </div>
 
-      {/* Product info */}
-      <div className="p-3 space-y-1">
-        <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
-          {product.title}
-        </p>
-        <span className="flex items-center gap-1 text-[10px] text-accent opacity-60 group-hover:opacity-100 transition-opacity">
-          View Product <ExternalLink className="h-3 w-3" />
-        </span>
+      {/* Store buttons */}
+      <div className="p-2 space-y-1.5">
+        {product.stores.map((store) => (
+          <a
+            key={store.store}
+            href={store.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/40
+                       hover:border-accent/30 hover:bg-accent/5 transition-all group"
+          >
+            <span className="text-base">{store.icon}</span>
+            <span className="text-xs font-medium flex-1">{store.store}</span>
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: store.color + "20", color: store.color }}
+            >
+              Shop Now
+            </span>
+            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </a>
+        ))}
       </div>
-    </motion.a>
+    </motion.div>
   );
 }
 
@@ -1093,7 +1074,7 @@ function ProductGrid({ products }: { products: Product[] }) {
       animate={{ opacity: 1, y: 0 }}
       className="mt-3 mb-1"
     >
-      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {products.map((product, i) => (
           <ProductCard key={i} product={product} index={i} />
         ))}
