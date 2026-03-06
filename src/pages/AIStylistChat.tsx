@@ -398,98 +398,34 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
 
   const handleProductYes = async () => {
     setShowProductPrompt(false);
-
-    // Add user response
     addMessage("user", "✅ Yes, show me products!");
 
-    // Show loading state
+    // Use lastRecommendation or fallback
+    let recommendationText = lastRecommendation;
+    if (!recommendationText || recommendationText.trim().length < 20) {
+      const assistantMsgs = messages.filter(
+        (m) => m.role === "assistant" && m.content && !m.productPrompt && !m.productsLoading && !m.analysisCard && m.content.length > 50
+      );
+      if (assistantMsgs.length > 0) {
+        recommendationText = assistantMsgs[assistantMsgs.length - 1].content;
+      }
+    }
+
+    const products = buildProductsFromText(recommendationText);
+
+    if (products.length === 0) {
+      addMessage("assistant", "😔 Couldn't extract specific items from the recommendation. Try asking for a more detailed outfit suggestion!");
+      return;
+    }
+
     setMessages((prev) => [
       ...prev,
       {
         role: "assistant" as const,
-        content: "🔍 Searching for products matching your recommended outfit...",
-        productsLoading: true,
+        content: `🛒 Found **${products.length} recommended items** — shop them on Amazon, Flipkart & Myntra:`,
+        products,
       },
     ]);
-
-    try {
-      // Use lastRecommendation, or fallback to the latest assistant message content
-      let recommendationText = lastRecommendation;
-      if (!recommendationText || recommendationText.trim().length < 20) {
-        // Fallback: find the last non-empty assistant message that has actual recommendation text
-        const assistantMsgs = messages.filter(
-          (m) => m.role === "assistant" && m.content && !m.productPrompt && !m.productsLoading && !m.analysisCard && m.content.length > 50
-        );
-        if (assistantMsgs.length > 0) {
-          recommendationText = assistantMsgs[assistantMsgs.length - 1].content;
-        }
-      }
-
-      console.log("[ProductSearch] Recommendation text length:", recommendationText.length);
-      console.log("[ProductSearch] First 200 chars:", recommendationText.slice(0, 200));
-
-      const queries = extractSearchQueries(recommendationText);
-      let allProducts: Product[] = [];
-      let lastError = "";
-
-      // Fetch products for each extracted query
-      for (const query of queries.slice(0, 3)) {
-        try {
-          console.log("[ProductSearch] Fetching products for:", query);
-          const products = await fetchProducts(query);
-          console.log("[ProductSearch] Got", products.length, "results for:", query);
-          allProducts = [...allProducts, ...products];
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : "Unknown error";
-          console.error("[ProductSearch] Failed for query:", query, e);
-        }
-      }
-
-      // Deduplicate by link
-      const seen = new Set<string>();
-      const uniqueProducts = allProducts.filter((p) => {
-        if (seen.has(p.link)) return false;
-        seen.add(p.link);
-        return true;
-      }).slice(0, 8);
-
-      // Replace loading message with products
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.productsLoading);
-        if (uniqueProducts.length === 0) {
-          const errorHint = lastError
-            ? `\n\n_Error: ${lastError}_`
-            : "";
-          return [
-            ...filtered,
-            {
-              role: "assistant" as const,
-              content: `😔 No matching products found. The product search service may be temporarily unavailable.${errorHint}\n\nYou can try searching for the recommended items directly on your favorite shopping site! 🛍️`,
-            },
-          ];
-        }
-        return [
-          ...filtered,
-          {
-            role: "assistant" as const,
-            content: `🛒 Found **${uniqueProducts.length} products** matching your recommended outfit:`,
-            products: uniqueProducts,
-          },
-        ];
-      });
-    } catch (e) {
-      console.error("[ProductSearch] Fatal error:", e);
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.productsLoading);
-        return [
-          ...filtered,
-          {
-            role: "assistant" as const,
-            content: "❌ Sorry, I couldn't search for products right now. Please try again later!",
-          },
-        ];
-      });
-    }
   };
 
   const handleProductNo = () => {
