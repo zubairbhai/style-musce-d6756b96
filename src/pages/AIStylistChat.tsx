@@ -4,7 +4,7 @@ import {
   Send, Sparkles, Loader2, ImagePlus, X, Camera, Eye,
   Palette, User, Shirt, Watch, MapPin, ArrowRight,
   RefreshCw, CheckCircle2, ChevronDown, ShoppingBag,
-  ExternalLink, ThumbsUp, ThumbsDown, Search
+  ExternalLink, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
