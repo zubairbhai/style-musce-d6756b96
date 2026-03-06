@@ -56,9 +56,28 @@ type AnalysisPhase =
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stylist-chat`;
 const PRODUCTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-outfit`;
 
-// ─── Product query cache ─────────────────────────────────────────────
+// ─── Store search URL builders ───────────────────────────────────────
 
-const productCache = new Map<string, Product[]>();
+const buildStoreLinks = (query: string): StoreLink[] => [
+  {
+    store: "Amazon",
+    link: `https://www.amazon.in/s?k=${encodeURIComponent(query)}`,
+    color: "#FF9900",
+    icon: "🛒",
+  },
+  {
+    store: "Flipkart",
+    link: `https://www.flipkart.com/search?q=${encodeURIComponent(query)}`,
+    color: "#2874F0",
+    icon: "🛍️",
+  },
+  {
+    store: "Myntra",
+    link: `https://www.myntra.com/${encodeURIComponent(query.replace(/\s+/g, "-"))}`,
+    color: "#FF3F6C",
+    icon: "👗",
+  },
+];
 
 // ─── Component ───────────────────────────────────────────────────────
 
