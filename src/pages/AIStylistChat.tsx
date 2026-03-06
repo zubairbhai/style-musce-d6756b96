@@ -18,11 +18,16 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+type StoreLink = {
+  store: "Amazon" | "Flipkart" | "Myntra";
+  link: string;
+  color: string;
+  icon: string;
+};
+
 type Product = {
   title: string;
-  price: string;
-  image: string;
-  link: string;
+  stores: StoreLink[];
 };
 
 type Msg = {
