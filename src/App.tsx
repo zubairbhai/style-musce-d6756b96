@@ -2,11 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/Navbar";
-import AuthGate from "@/components/AuthGate";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import StyleQuiz from "./pages/StyleQuiz";
@@ -21,101 +20,6 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-/**
- * Inner layout — renders Navbar only for authenticated routes (not /auth).
- */
-const AppLayout = () => {
-  const location = useLocation();
-  const isAuthPage = location.pathname === "/auth";
-
-  return (
-    <>
-      {/* Hide navbar on the auth page for a clean full-screen login experience */}
-      {!isAuthPage && <Navbar />}
-
-      <Routes>
-        {/* ── Public route: Auth page (login/signup) ── */}
-        <Route path="/auth" element={<Auth />} />
-
-        {/* ── Protected routes: everything else requires authentication ── */}
-        <Route
-          path="/"
-          element={
-            <AuthGate>
-              <Index />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/quiz"
-          element={
-            <AuthGate>
-              <StyleQuiz />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <AuthGate>
-              <AIStylistChat />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/generator"
-          element={
-            <AuthGate>
-              <OutfitGenerator />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/lookbook"
-          element={
-            <AuthGate>
-              <Lookbook />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/trends"
-          element={
-            <AuthGate>
-              <TrendExplorer />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/analyzer"
-          element={
-            <AuthGate>
-              <OutfitAnalyzer />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/wardrobe"
-          element={
-            <AuthGate>
-              <Wardrobe />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <AuthGate>
-              <Profile />
-            </AuthGate>
-          }
-        />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
-  );
-};
-
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
     <QueryClientProvider client={queryClient}>
@@ -124,7 +28,20 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <AppLayout />
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/quiz" element={<StyleQuiz />} />
+              <Route path="/chat" element={<AIStylistChat />} />
+              <Route path="/generator" element={<OutfitGenerator />} />
+              <Route path="/lookbook" element={<Lookbook />} />
+              <Route path="/trends" element={<TrendExplorer />} />
+              <Route path="/analyzer" element={<OutfitAnalyzer />} />
+              <Route path="/wardrobe" element={<Wardrobe />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

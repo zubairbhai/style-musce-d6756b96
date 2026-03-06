@@ -4,7 +4,7 @@ import {
   Send, Sparkles, Loader2, ImagePlus, X, Camera, Eye,
   Palette, User, Shirt, Watch, MapPin, ArrowRight,
   RefreshCw, CheckCircle2, ChevronDown, ShoppingBag,
-  ExternalLink, ThumbsUp, ThumbsDown, Search
+  ExternalLink, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -18,11 +18,16 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+type StoreLink = {
+  store: "Amazon" | "Flipkart" | "Myntra";
+  link: string;
+  color: string;
+  icon: string;
+};
+
 type Product = {
   title: string;
-  price: string;
-  image: string;
-  link: string;
+  stores: StoreLink[];
 };
 
 type Msg = {
@@ -49,11 +54,29 @@ type AnalysisPhase =
 // ─── Constants ───────────────────────────────────────────────────────
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stylist-chat`;
-const PRODUCTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-outfit`;
 
-// ─── Product query cache ─────────────────────────────────────────────
+// ─── Store search URL builders ───────────────────────────────────────
 
-const productCache = new Map<string, Product[]>();
+const buildStoreLinks = (query: string): StoreLink[] => [
+  {
+    store: "Amazon",
+    link: `https://www.amazon.in/s?k=${encodeURIComponent(query)}`,
+    color: "#FF9900",
+    icon: "🛒",
+  },
+  {
+    store: "Flipkart",
+    link: `https://www.flipkart.com/search?q=${encodeURIComponent(query)}`,
+    color: "#2874F0",
+    icon: "🛍️",
+  },
+  {
+    store: "Myntra",
+    link: `https://www.myntra.com/${encodeURIComponent(query.replace(/\s+/g, "-"))}`,
+    color: "#FF3F6C",
+    icon: "👗",
+  },
+];
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -334,8 +357,8 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
       const norm = q.toLowerCase().replace(/\s+/g, " ").trim();
       // Skip if we already have a very similar query
       const isDupe = [...seen].some((s) => {
-        return s.includes(norm) || norm.includes(s) ||
-          (norm.split(" ").length > 1 && s.split(" ").slice(-1)[0] === norm.split(" ").slice(-1)[0]);
+        return s.includes(norm) || norm.includes(s) || 
+               (norm.split(" ").length > 1 && s.split(" ").slice(-1)[0] === norm.split(" ").slice(-1)[0]);
       });
       if (!isDupe && norm.length > 3) {
         seen.add(norm);
@@ -364,146 +387,44 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
     return unique;
   };
 
-  const fetchProducts = async (query: string): Promise<Product[]> => {
-    // Check cache first
-    const cacheKey = query.toLowerCase().trim();
-    if (productCache.has(cacheKey)) {
-      return productCache.get(cacheKey)!;
-    }
-
-    const resp = await fetch(PRODUCTS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ action: "search-products", query, limit: 5 }),
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      const errorMsg = data?.error || "Product search failed";
-      console.error("[ProductSearch] API error:", resp.status, errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    const products: Product[] = data.products || [];
-
-    // Cache the results
-    if (products.length > 0) {
-      productCache.set(cacheKey, products);
-    }
-
-    return products;
+  const buildProductsFromText = (recommendation: string): Product[] => {
+    const queries = extractSearchQueries(recommendation);
+    return queries.slice(0, 5).map((q) => ({
+      title: q,
+      stores: buildStoreLinks(q),
+    }));
   };
 
   const handleProductYes = async () => {
     setShowProductPrompt(false);
-
-    // Add user response
     addMessage("user", "✅ Yes, show me products!");
 
-    // Show loading state
+    // Use lastRecommendation or fallback
+    let recommendationText = lastRecommendation;
+    if (!recommendationText || recommendationText.trim().length < 20) {
+      const assistantMsgs = messages.filter(
+        (m) => m.role === "assistant" && m.content && !m.productPrompt && !m.productsLoading && !m.analysisCard && m.content.length > 50
+      );
+      if (assistantMsgs.length > 0) {
+        recommendationText = assistantMsgs[assistantMsgs.length - 1].content;
+      }
+    }
+
+    const products = buildProductsFromText(recommendationText);
+
+    if (products.length === 0) {
+      addMessage("assistant", "😔 Couldn't extract specific items from the recommendation. Try asking for a more detailed outfit suggestion!");
+      return;
+    }
+
     setMessages((prev) => [
       ...prev,
       {
         role: "assistant" as const,
-        content: "🔍 Searching for products matching your recommended outfit...",
-        productsLoading: true,
+        content: `🛒 Found **${products.length} recommended items** — shop them on Amazon, Flipkart & Myntra:`,
+        products,
       },
     ]);
-
-    try {
-      // Use lastRecommendation, or fallback to the latest assistant message content
-      let recommendationText = lastRecommendation;
-      if (!recommendationText || recommendationText.trim().length < 20) {
-        // Fallback: find the last non-empty assistant message that has actual recommendation text
-        const assistantMsgs = messages.filter(
-          (m) => m.role === "assistant" && m.content && !m.productPrompt && !m.productsLoading && !m.analysisCard && m.content.length > 50
-        );
-        if (assistantMsgs.length > 0) {
-          recommendationText = assistantMsgs[assistantMsgs.length - 1].content;
-        }
-      }
-
-      console.log("[ProductSearch] Recommendation text length:", recommendationText.length);
-      console.log("[ProductSearch] First 200 chars:", recommendationText.slice(0, 200));
-
-      const queries = extractSearchQueries(recommendationText);
-      let allProducts: Product[] = [];
-      let lastError = "";
-
-      // Fetch products for each extracted query
-      for (const query of queries.slice(0, 3)) {
-        try {
-          console.log("[ProductSearch] Fetching products for:", query);
-          const products = await fetchProducts(query);
-          console.log("[ProductSearch] Got", products.length, "results for:", query);
-          allProducts = [...allProducts, ...products];
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : "Unknown error";
-          console.error("[ProductSearch] Failed for query:", query, e);
-        }
-      }
-
-      // Deduplicate by link
-      const seen = new Set<string>();
-      const uniqueProducts = allProducts.filter((p) => {
-        if (seen.has(p.link)) return false;
-        seen.add(p.link);
-        return true;
-      }).map((p) => {
-        // Fix Google Shopping links which get blocked (ERR_BLOCKED_BY_RESPONSE)
-        if (p.link.includes("google.com/search") || p.link.includes("google.com/shopping")) {
-          const queryMatch = p.link.match(/[?&]q=([^&]+)/);
-          const searchTerm = queryMatch ? decodeURIComponent(queryMatch[1]) : p.title;
-          return {
-            ...p,
-            link: `https://www.amazon.in/s?k=${encodeURIComponent(searchTerm)}`,
-            price: p.price === "Browse results" ? "View on Amazon" : p.price,
-          };
-        }
-        return p;
-      }).slice(0, 8);
-
-      // Replace loading message with products
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.productsLoading);
-        if (uniqueProducts.length === 0) {
-          const errorHint = lastError
-            ? `\n\n_Error: ${lastError}_`
-            : "";
-          return [
-            ...filtered,
-            {
-              role: "assistant" as const,
-              content: `😔 No matching products found. The product search service may be temporarily unavailable.${errorHint}\n\nYou can try searching for the recommended items directly on your favorite shopping site! 🛍️`,
-            },
-          ];
-        }
-        return [
-          ...filtered,
-          {
-            role: "assistant" as const,
-            content: `🛒 Found **${uniqueProducts.length} products** matching your recommended outfit:`,
-            products: uniqueProducts,
-          },
-        ];
-      });
-    } catch (e) {
-      console.error("[ProductSearch] Fatal error:", e);
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.productsLoading);
-        return [
-          ...filtered,
-          {
-            role: "assistant" as const,
-            content: "❌ Sorry, I couldn't search for products right now. Please try again later!",
-          },
-        ];
-      });
-    }
   };
 
   const handleProductNo = () => {
@@ -1103,89 +1024,56 @@ function ProductPromptCard({ onYes, onNo }: { onYes: () => void; onNo: () => voi
 // ─── Product Grid ────────────────────────────────────────────────────
 
 function ProductCard({ product, index }: { product: Product; index: number }) {
-  const [imgStatus, setImgStatus] = useState<"loading" | "loaded" | "error">(
-    product.image ? "loading" : "error"
-  );
-
   return (
-    <motion.a
-      href={product.link}
-      target="_blank"
-      rel="noopener noreferrer"
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08 }}
-      className="group block rounded-xl overflow-hidden border border-border/50
-                 bg-background/60 hover:bg-background/80
-                 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5
-                 transition-all duration-250 hover:scale-[1.02]"
+      transition={{ delay: index * 0.1 }}
+      className="rounded-xl overflow-hidden border border-border/50 bg-background/60"
     >
-      {/* Product image */}
-      <div className="aspect-[4/3] w-full overflow-hidden bg-secondary/20 relative">
-        {imgStatus === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-secondary/30 animate-pulse">
-            <Loader2 className="h-5 w-5 text-muted-foreground/40 animate-spin" />
-          </div>
-        )}
-        {product.image && imgStatus !== "error" && (
-          <img
-            src={product.image}
-            alt={product.title}
-            loading="lazy"
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imgStatus === "loaded" ? "opacity-100" : "opacity-0"
-              }`}
-            onLoad={() => setImgStatus("loaded")}
-            onError={() => setImgStatus("error")}
-          />
-        )}
-        {imgStatus === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-secondary/30">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground/30" />
-            <span className="text-[10px] text-muted-foreground/40">No preview</span>
-          </div>
-        )}
-        {/* Price badge overlay */}
-        <div className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm rounded-md px-2 py-0.5">
-          <span className="text-xs font-bold text-emerald-400">{product.price}</span>
+      {/* Item title header */}
+      <div className="px-3 py-2.5 bg-secondary/40 border-b border-border/30">
+        <div className="flex items-center gap-2">
+          <Shirt className="h-4 w-4 text-accent shrink-0" />
+          <p className="text-xs font-semibold leading-tight line-clamp-2">{product.title}</p>
         </div>
       </div>
 
-      {/* Product info */}
-      <div className="p-3 space-y-1">
-        <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
-          {product.title}
-        </p>
-        <span className="flex items-center gap-1 text-[10px] text-accent opacity-60 group-hover:opacity-100 transition-opacity">
-          View Product <ExternalLink className="h-3 w-3" />
-        </span>
+      {/* Store buttons */}
+      <div className="p-2 space-y-1.5">
+        {product.stores.map((store) => (
+          <a
+            key={store.store}
+            href={store.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/40
+                       hover:border-accent/30 hover:bg-accent/5 transition-all group"
+          >
+            <span className="text-base">{store.icon}</span>
+            <span className="text-xs font-medium flex-1">{store.store}</span>
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: store.color + "20", color: store.color }}
+            >
+              Shop Now
+            </span>
+            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </a>
+        ))}
       </div>
-    </motion.a>
+    </motion.div>
   );
 }
 
 function ProductGrid({ products }: { products: Product[] }) {
-  const getShopIcon = (link: string): string => {
-    if (link.includes("amazon")) return "🛒";
-    if (link.includes("flipkart")) return "🏪";
-    if (link.includes("myntra")) return "👗";
-    if (link.includes("ajio")) return "🧥";
-    return "🛍️";
-  };
-
-  const isFallbackProduct = (product: Product): boolean => {
-    return !product.image && (
-      product.price.toLowerCase().includes("view on") ||
-      product.price.toLowerCase().includes("browse")
-    );
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="mt-3 mb-1"
     >
-      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {products.map((product, i) => (
           <ProductCard key={i} product={product} index={i} />
         ))}
