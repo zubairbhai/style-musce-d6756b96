@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, Palette, MessageCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import heroImage from "@/assets/hero-fashion.jpg";
+
 
 const features = [
   {
@@ -37,11 +37,15 @@ const Index = () => {
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Fashion accessories flat lay"
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full h-full object-cover"
-          />
+          >
+            <source src="/hero-video.mp4" type="video/mp4" />
+          </video>
           <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-background/30" />
         </div>
 
