@@ -54,7 +54,6 @@ type AnalysisPhase =
 // ─── Constants ───────────────────────────────────────────────────────
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stylist-chat`;
-const PRODUCTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-outfit`;
 
 // ─── Store search URL builders ───────────────────────────────────────
 
