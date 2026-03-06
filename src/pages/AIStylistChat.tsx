@@ -1021,45 +1021,118 @@ function ProductPromptCard({ onYes, onNo }: { onYes: () => void; onNo: () => voi
   );
 }
 
-// ─── Product Grid ────────────────────────────────────────────────────
+// ─── Product Grid (Dynamic) ──────────────────────────────────────────
+
+const CATEGORY_ICONS: Record<string, { icon: string; gradient: string }> = {
+  shirt: { icon: "👔", gradient: "from-blue-500/20 to-indigo-500/20" },
+  tshirt: { icon: "👕", gradient: "from-cyan-500/20 to-blue-500/20" },
+  pants: { icon: "👖", gradient: "from-indigo-500/20 to-purple-500/20" },
+  shoes: { icon: "👟", gradient: "from-orange-500/20 to-amber-500/20" },
+  dress: { icon: "👗", gradient: "from-pink-500/20 to-rose-500/20" },
+  jacket: { icon: "🧥", gradient: "from-slate-500/20 to-gray-500/20" },
+  watch: { icon: "⌚", gradient: "from-yellow-500/20 to-amber-500/20" },
+  bag: { icon: "👜", gradient: "from-emerald-500/20 to-teal-500/20" },
+  default: { icon: "🛍️", gradient: "from-accent/20 to-accent/10" },
+};
+
+function getCategoryMeta(title: string) {
+  const t = title.toLowerCase();
+  if (t.includes("shirt") && !t.includes("t-shirt")) return CATEGORY_ICONS.shirt;
+  if (t.includes("t-shirt") || t.includes("tee") || t.includes("polo")) return CATEGORY_ICONS.tshirt;
+  if (t.includes("pant") || t.includes("trouser") || t.includes("jean") || t.includes("chino")) return CATEGORY_ICONS.pants;
+  if (t.includes("shoe") || t.includes("sneaker") || t.includes("boot") || t.includes("loafer") || t.includes("heel")) return CATEGORY_ICONS.shoes;
+  if (t.includes("dress") || t.includes("skirt") || t.includes("saree") || t.includes("kurta")) return CATEGORY_ICONS.dress;
+  if (t.includes("jacket") || t.includes("blazer") || t.includes("coat") || t.includes("hoodie") || t.includes("sweater")) return CATEGORY_ICONS.jacket;
+  if (t.includes("watch") || t.includes("sunglasses") || t.includes("belt")) return CATEGORY_ICONS.watch;
+  if (t.includes("bag") || t.includes("purse") || t.includes("clutch")) return CATEGORY_ICONS.bag;
+  return CATEGORY_ICONS.default;
+}
 
 function ProductCard({ product, index }: { product: Product; index: number }) {
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const meta = getCategoryMeta(product.title);
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className="rounded-xl overflow-hidden border border-border/50 bg-background/60"
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: index * 0.12, type: "spring", stiffness: 200, damping: 20 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className="rounded-2xl overflow-hidden border border-border/40 bg-background/70 backdrop-blur-sm
+                 hover:border-accent/40 hover:shadow-lg hover:shadow-accent/10 transition-all duration-300"
     >
-      {/* Item title header */}
-      <div className="px-3 py-2.5 bg-secondary/40 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <Shirt className="h-4 w-4 text-accent shrink-0" />
-          <p className="text-xs font-semibold leading-tight line-clamp-2">{product.title}</p>
+      {/* Gradient header with category icon */}
+      <div className={`px-4 py-3 bg-gradient-to-r ${meta.gradient} border-b border-border/20 relative overflow-hidden`}>
+        <motion.div
+          animate={{ rotate: isHovered ? [0, -10, 10, 0] : 0 }}
+          transition={{ duration: 0.5 }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-3xl opacity-30"
+        >
+          {meta.icon}
+        </motion.div>
+        <div className="flex items-start gap-2.5 relative z-10">
+          <span className="text-xl mt-0.5">{meta.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold leading-tight line-clamp-2 text-foreground">{product.title}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {product.stores.length} stores available
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Store buttons */}
-      <div className="p-2 space-y-1.5">
-        {product.stores.map((store) => (
-          <a
+      {/* Store links with expand animation */}
+      <div className="p-2.5 space-y-1">
+        {product.stores.map((store, si) => (
+          <motion.a
             key={store.store}
             href={store.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/40
-                       hover:border-accent/30 hover:bg-accent/5 transition-all group"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.12 + si * 0.08 }}
+            onMouseEnter={() => setExpandedStore(store.store)}
+            onMouseLeave={() => setExpandedStore(null)}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border/30
+                       hover:border-transparent transition-all duration-200 group relative overflow-hidden"
+            style={{
+              background: expandedStore === store.store
+                ? `linear-gradient(135deg, ${store.color}15, ${store.color}08)`
+                : undefined,
+            }}
           >
-            <span className="text-base">{store.icon}</span>
-            <span className="text-xs font-medium flex-1">{store.store}</span>
-            <span
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: store.color + "20", color: store.color }}
+            {/* Animated bg sweep */}
+            <motion.div
+              className="absolute inset-0 rounded-xl"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: expandedStore === store.store ? 1 : 0 }}
+              style={{ backgroundColor: store.color + "08", transformOrigin: "left" }}
+              transition={{ duration: 0.2 }}
+            />
+
+            <span className="text-lg relative z-10">{store.icon}</span>
+            <span className="text-xs font-semibold flex-1 relative z-10">{store.store}</span>
+
+            <motion.span
+              animate={{ width: expandedStore === store.store ? "auto" : 0, opacity: expandedStore === store.store ? 1 : 0 }}
+              className="overflow-hidden relative z-10"
             >
-              Shop Now
-            </span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-          </a>
+              <span
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap inline-block"
+                style={{ backgroundColor: store.color + "25", color: store.color }}
+              >
+                Search →
+              </span>
+            </motion.span>
+
+            <ExternalLink
+              className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-all relative z-10"
+              style={{ color: expandedStore === store.store ? store.color : undefined }}
+            />
+          </motion.a>
         ))}
       </div>
     </motion.div>
@@ -1067,17 +1140,80 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 }
 
 function ProductGrid({ products }: { products: Product[] }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-3 mb-1"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="mt-3 mb-1 space-y-3"
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {products.map((product, i) => (
-          <ProductCard key={i} product={product} index={i} />
-        ))}
+      {/* Scrollable pill nav */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {products.map((p, i) => {
+          const meta = getCategoryMeta(p.title);
+          return (
+            <motion.button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              whileTap={{ scale: 0.95 }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap
+                         border transition-all duration-200 shrink-0
+                         ${activeIdx === i
+                  ? "bg-accent text-accent-foreground border-accent shadow-md shadow-accent/20"
+                  : "bg-secondary/40 border-border/40 text-muted-foreground hover:text-foreground hover:border-accent/30"
+                }`}
+            >
+              <span>{meta.icon}</span>
+              {p.title.split(" ").slice(0, 3).join(" ")}
+            </motion.button>
+          );
+        })}
       </div>
+
+      {/* Active product card (large) */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeIdx}
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -30 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
+          <ProductCard product={products[activeIdx]} index={0} />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Mini cards grid for remaining */}
+      {products.length > 1 && (
+        <div className="grid grid-cols-2 gap-2">
+          {products.map((product, i) => {
+            if (i === activeIdx) return null;
+            const meta = getCategoryMeta(product.title);
+            return (
+              <motion.button
+                key={i}
+                onClick={() => setActiveIdx(i)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 p-2.5 rounded-xl border border-border/30
+                           bg-secondary/20 hover:bg-secondary/40 hover:border-accent/30
+                           transition-all text-left"
+              >
+                <span className="text-lg">{meta.icon}</span>
+                <span className="text-[11px] font-medium line-clamp-1 flex-1">{product.title}</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground -rotate-90" />
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Footer hint */}
+      <p className="text-[10px] text-muted-foreground text-center flex items-center justify-center gap-1">
+        <ShoppingBag className="h-3 w-3" />
+        Tap any item to browse • Links open in new tab
+      </p>
     </motion.div>
   );
 }
