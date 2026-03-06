@@ -388,38 +388,12 @@ Format with clear sections, bullet points, and specific item/color suggestions. 
     return unique;
   };
 
-  const fetchProducts = async (query: string): Promise<Product[]> => {
-    // Check cache first
-    const cacheKey = query.toLowerCase().trim();
-    if (productCache.has(cacheKey)) {
-      return productCache.get(cacheKey)!;
-    }
-
-    const resp = await fetch(PRODUCTS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ action: "search-products", query, limit: 5 }),
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      const errorMsg = data?.error || "Product search failed";
-      console.error("[ProductSearch] API error:", resp.status, errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    const products: Product[] = data.products || [];
-
-    // Cache the results
-    if (products.length > 0) {
-      productCache.set(cacheKey, products);
-    }
-
-    return products;
+  const buildProductsFromText = (recommendation: string): Product[] => {
+    const queries = extractSearchQueries(recommendation);
+    return queries.slice(0, 5).map((q) => ({
+      title: q,
+      stores: buildStoreLinks(q),
+    }));
   };
 
   const handleProductYes = async () => {
