@@ -9,8 +9,6 @@ import { useTheme } from "next-themes";
 const navItems = [
   { label: "Home", path: "/" },
   { label: "Style Quiz", path: "/quiz" },
-  { label: "AI Stylist", path: "/chat" },
-  { label: "Generator", path: "/generator" },
   { label: "Analyzer", path: "/analyzer" },
   { label: "Wardrobe", path: "/wardrobe" },
   { label: "Lookbook", path: "/lookbook" },

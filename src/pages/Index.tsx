@@ -89,7 +89,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="rounded-full px-8">
-                <Link to="/chat">Chat with AI Stylist</Link>
+                <Link to="/analyzer">Analyze My Outfit</Link>
               </Button>
             </motion.div>
           </motion.div>
