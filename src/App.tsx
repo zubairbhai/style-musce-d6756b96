@@ -10,8 +10,6 @@ import AuthGate from "@/components/AuthGate";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import StyleQuiz from "./pages/StyleQuiz";
-import AIStylistChat from "./pages/AIStylistChat";
-import OutfitGenerator from "./pages/OutfitGenerator";
 import Lookbook from "./pages/Lookbook";
 import TrendExplorer from "./pages/TrendExplorer";
 import OutfitAnalyzer from "./pages/OutfitAnalyzer";
@@ -51,22 +49,6 @@ const AppLayout = () => {
           element={
             <AuthGate>
               <StyleQuiz />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <AuthGate>
-              <AIStylistChat />
-            </AuthGate>
-          }
-        />
-        <Route
-          path="/generator"
-          element={
-            <AuthGate>
-              <OutfitGenerator />
             </AuthGate>
           }
         />

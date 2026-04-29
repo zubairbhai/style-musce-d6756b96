@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Palette, MessageCircle, ArrowRight } from "lucide-react";
+import { Sparkles, Palette, Camera, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 
 const features = [
   {
-    icon: Sparkles,
-    title: "AI Outfit Suggestions",
-    description: "Get personalized outfit ideas powered by AI, tailored to your style and occasion.",
+    icon: Camera,
+    title: "Outfit Analyzer",
+    description: "Upload a photo and get expert AI styling feedback plus a tailored outfit suggestion.",
   },
   {
     icon: Palette,
@@ -16,9 +16,9 @@ const features = [
     description: "Discover your unique style profile through our interactive fashion quiz.",
   },
   {
-    icon: MessageCircle,
-    title: "AI Stylist Chat",
-    description: "Chat with your personal AI stylist for real-time fashion advice and inspiration.",
+    icon: Sparkles,
+    title: "AI Outfit Generator",
+    description: "Generate complete looks for any occasion, season, and vibe — instantly.",
   },
 ];
 
@@ -89,7 +89,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="rounded-full px-8">
-                <Link to="/chat">Chat with AI Stylist</Link>
+                <Link to="/analyzer">Analyze My Outfit</Link>
               </Button>
             </motion.div>
           </motion.div>
