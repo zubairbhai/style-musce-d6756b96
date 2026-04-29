@@ -671,10 +671,9 @@ async function detectHuman(
   // (a) Try native FaceDetector (Chromium / some mobile)
   let faceFound = false;
   try {
-    // @ts-expect-error - experimental API
-    if (typeof window !== "undefined" && "FaceDetector" in window) {
-      // @ts-expect-error - experimental API
-      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+    const w: any = typeof window !== "undefined" ? window : undefined;
+    if (w && "FaceDetector" in w) {
+      const detector = new w.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
       const faces = await detector.detect(img).catch(() => []);
       if (Array.isArray(faces) && faces.length > 0) faceFound = true;
     }
