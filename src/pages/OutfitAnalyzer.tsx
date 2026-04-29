@@ -1,20 +1,23 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Upload, X, Loader2, Camera, Sparkles, ScanSearch } from "lucide-react";
+import { Upload, X, Loader2, Camera, Sparkles, Wand2, RefreshCw, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
-import ClothingDetectionResults from "@/components/ClothingDetectionResults";
-import ImageWithBoundingBoxes from "@/components/ImageWithBoundingBoxes";
-import { extractDominantColors } from "@/lib/colorExtraction";
 
 const occasions = ["Work / Office", "Date Night", "Casual Day Out", "Party / Club", "Wedding / Formal", "Travel", "Gym / Activewear", "Interview"];
 const seasons = ["Spring", "Summer", "Autumn", "Winter"];
 const contexts = ["Rate my outfit", "Suggest best combinations", "What should I pair this with?", "Is this appropriate for the occasion?"];
+const palettes = ["Neutrals", "Pastels", "Bold & Bright", "Earth Tones", "Monochrome", "Jewel Tones"];
+const vibes = ["Minimalist", "Streetwear", "Bohemian", "Classic", "Edgy", "Romantic"];
+
+interface GeneratedOutfit {
+  text: string;
+  imageUrl?: string;
+}
 
 const OutfitAnalyzer = () => {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
@@ -22,11 +25,17 @@ const OutfitAnalyzer = () => {
   const [season, setSeason] = useState("");
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
-  const [detectLoading, setDetectLoading] = useState(false);
   const [analysis, setAnalysis] = useState<string | null>(null);
-  const [detectionResult, setDetectionResult] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("detect");
+
+  // Generator state (rendered after analysis)
+  const [gender, setGender] = useState<"" | "male" | "female">("");
+  const [palette, setPalette] = useState("");
+  const [vibe, setVibe] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+  const [outfit, setOutfit] = useState<GeneratedOutfit | null>(null);
+
   const fileRef = useRef<HTMLInputElement>(null);
+  const generatorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const handleFiles = (files: FileList | null) => {
@@ -41,8 +50,8 @@ const OutfitAnalyzer = () => {
       return;
     }
     setImages((prev) => [...prev, ...newImages].slice(0, 5));
-    setDetectionResult(null);
     setAnalysis(null);
+    setOutfit(null);
   };
 
   const removeImage = (index: number) => {
@@ -50,56 +59,13 @@ const OutfitAnalyzer = () => {
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
-    setDetectionResult(null);
-  };
-
-  const detectClothing = async () => {
-    if (images.length === 0) return;
-    setDetectLoading(true);
-    setDetectionResult(null);
-
-    try {
-      // Upload first image to storage for the edge function
-      const img = images[0];
-      const ext = img.file.name.split(".").pop() || "jpg";
-      const path = `detect-${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("outfit-uploads")
-        .upload(path, img.file, { contentType: img.file.type });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from("outfit-uploads").getPublicUrl(path);
-      const imageUrl = urlData.publicUrl;
-
-      // Run HF detection and client-side color extraction in parallel
-      const [detectionResponse, colors] = await Promise.all([
-        supabase.functions.invoke("analyze-clothing", {
-          body: { imageUrl },
-        }),
-        extractDominantColors(img.preview),
-      ]);
-
-      if (detectionResponse.error) throw detectionResponse.error;
-
-      const result = {
-        ...detectionResponse.data,
-        dominant_colors: colors,
-      };
-
-      setDetectionResult(result);
-      toast({ title: "Detection complete!", description: `Found ${result.clothing_items?.length || 0} clothing items.` });
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: "Detection failed", description: e.message || "Please try again.", variant: "destructive" });
-    }
-    setDetectLoading(false);
   };
 
   const analyzeStyle = async () => {
     if (images.length === 0) return;
     setLoading(true);
     setAnalysis(null);
+    setOutfit(null);
 
     try {
       const imageUrls: string[] = [];
@@ -128,6 +94,61 @@ const OutfitAnalyzer = () => {
     setLoading(false);
   };
 
+  // After analysis is ready, scroll into the inline generator
+  useEffect(() => {
+    if (analysis) {
+      setTimeout(() => generatorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [analysis]);
+
+  const generateOutfit = async () => {
+    if (!gender || !occasion || !season) {
+      toast({ title: "Pick gender, occasion & season", description: "Required to generate a tailored outfit.", variant: "destructive" });
+      return;
+    }
+    setGenLoading(true);
+    setOutfit(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-outfit", {
+        body: {
+          occasion,
+          season,
+          palette,
+          vibe,
+          gender,
+          // Pass analysis as additional context (edge fn ignores unknown fields safely)
+          analysisContext: analysis,
+        },
+      });
+
+      if (error) {
+        const errBody = data || {};
+        if (errBody.error === "Payment required") {
+          setOutfit({ text: "⚠️ **AI credits exhausted.** Please add credits to continue generating outfits." });
+        } else if (errBody.error === "Rate limit exceeded") {
+          setOutfit({ text: "⚠️ **Too many requests.** Please wait a moment and try again." });
+        } else {
+          throw error;
+        }
+        return;
+      }
+      setOutfit({ text: data.text, imageUrl: data.imageUrl });
+    } catch (e) {
+      console.error(e);
+      setOutfit({ text: "Something went wrong. Please try again!" });
+    }
+    setGenLoading(false);
+  };
+
+  const saveOutfit = () => {
+    if (!outfit) return;
+    const saved = JSON.parse(localStorage.getItem("stylesense-lookbook") || "[]");
+    saved.unshift({ ...outfit, occasion, season, palette, vibe, savedAt: new Date().toISOString() });
+    localStorage.setItem("stylesense-lookbook", JSON.stringify(saved));
+    toast({ title: "Saved to Lookbook ✨" });
+  };
+
   return (
     <div className="min-h-screen pt-24 pb-12">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -137,11 +158,9 @@ const OutfitAnalyzer = () => {
             <Camera className="h-4 w-4" />
             AI Outfit Analyzer
           </div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold mb-3">
-            Get Expert Styling Feedback
-          </h1>
+          <h1 className="font-display text-3xl md:text-4xl font-bold mb-3">Get Expert Styling Feedback</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Upload photos of your outfit — detect clothing items with open-source AI, extract colors, or get full styling advice.
+            Upload photos of your outfit — get full styling advice, then generate a brand-new look tailored to your analysis.
           </p>
         </div>
 
@@ -187,99 +206,155 @@ const OutfitAnalyzer = () => {
           </div>
         )}
 
-        {/* Tabs: Detect vs Analyze */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="detect" className="flex items-center gap-2">
-              <ScanSearch className="h-4 w-4" />
-              Detect Items (Free)
-            </TabsTrigger>
-            <TabsTrigger value="analyze" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Full Analysis
-            </TabsTrigger>
-          </TabsList>
+        {/* Full Analysis Options */}
+        <div className="space-y-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Occasion</label>
+              <Select value={occasion} onValueChange={setOccasion}>
+                <SelectTrigger><SelectValue placeholder="What's the occasion?" /></SelectTrigger>
+                <SelectContent>{occasions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Season</label>
+              <Select value={season} onValueChange={setSeason}>
+                <SelectTrigger><SelectValue placeholder="What season?" /></SelectTrigger>
+                <SelectContent>{seasons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">What do you want?</label>
+              <Select value={context} onValueChange={setContext}>
+                <SelectTrigger><SelectValue placeholder="Pick feedback type" /></SelectTrigger>
+                <SelectContent>{contexts.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          <TabsContent value="detect" className="space-y-6 mt-6">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-4">
-                Uses Hugging Face open-source models to detect clothing items, classify styles, and extract colors — no paid AI credits.
+          <div className="flex justify-center">
+            <Button
+              onClick={analyzeStyle}
+              disabled={images.length === 0 || loading}
+              className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full px-8"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {loading ? "Analyzing your look..." : "Analyze My Outfit"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Analysis Output */}
+        {analysis && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border-accent/10">
+              <CardContent className="p-6 md:p-8">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{analysis}</ReactMarkdown>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ── Inline Outfit Generator (appears after analysis) ── */}
+        {analysis && (
+          <motion.div
+            ref={generatorRef}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-12"
+          >
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-medium mb-3">
+                <Wand2 className="h-4 w-4" />
+                Next Step
+              </div>
+              <h2 className="font-display text-2xl md:text-3xl font-bold mb-2">Generate a Tailored Outfit</h2>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Using your analysis above as context — pick a few preferences and we'll craft a fresh look.
               </p>
-              <Button
-                onClick={detectClothing}
-                disabled={images.length === 0 || detectLoading}
-                className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full px-8"
-              >
-                {detectLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ScanSearch className="h-4 w-4 mr-2" />}
-                {detectLoading ? "Detecting clothing..." : "Detect Clothing Items"}
+            </div>
+
+            {/* Gender toggle */}
+            <div className="flex justify-center gap-3 mb-6">
+              <Button variant={gender === "female" ? "default" : "outline"} onClick={() => setGender("female")} className="rounded-full px-6">
+                👩 Female
+              </Button>
+              <Button variant={gender === "male" ? "default" : "outline"} onClick={() => setGender("male")} className="rounded-full px-6">
+                👨 Male
               </Button>
             </div>
 
-            {detectionResult && (
-              <div className="space-y-6">
-                {/* Image with bounding boxes */}
-                {images.length > 0 && detectionResult.object_detections?.length > 0 && (
-                  <ImageWithBoundingBoxes
-                    imageSrc={images[0].preview}
-                    detections={detectionResult.object_detections}
-                  />
-                )}
-
-                <ClothingDetectionResults result={detectionResult} />
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="analyze" className="space-y-6 mt-6">
-            {/* Options */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Occasion</label>
                 <Select value={occasion} onValueChange={setOccasion}>
-                  <SelectTrigger><SelectValue placeholder="What's the occasion?" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pick one" /></SelectTrigger>
                   <SelectContent>{occasions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Season</label>
                 <Select value={season} onValueChange={setSeason}>
-                  <SelectTrigger><SelectValue placeholder="What season?" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pick one" /></SelectTrigger>
                   <SelectContent>{seasons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">What do you want?</label>
-                <Select value={context} onValueChange={setContext}>
-                  <SelectTrigger><SelectValue placeholder="Pick feedback type" /></SelectTrigger>
-                  <SelectContent>{contexts.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Color Palette</label>
+                <Select value={palette} onValueChange={setPalette}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>{palettes.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Style Vibe</label>
+                <Select value={vibe} onValueChange={setVibe}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>{vibes.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-3 mb-10">
               <Button
-                onClick={analyzeStyle}
-                disabled={images.length === 0 || loading}
+                onClick={generateOutfit}
+                disabled={!gender || !occasion || !season || genLoading}
                 className="bg-accent text-accent-foreground hover:bg-accent/90 rounded-full px-8"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                {loading ? "Analyzing your look..." : "Analyze My Outfit"}
+                {genLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Generate Outfit
               </Button>
+              {outfit && (
+                <Button variant="outline" onClick={generateOutfit} className="rounded-full" disabled={genLoading}>
+                  <RefreshCw className="h-4 w-4 mr-2" /> Regenerate
+                </Button>
+              )}
             </div>
 
-            {analysis && (
+            {outfit && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="border-accent/10">
-                  <CardContent className="p-6 md:p-8">
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <ReactMarkdown>{analysis}</ReactMarkdown>
+                <Card className="overflow-hidden border-accent/10">
+                  {outfit.imageUrl && (
+                    <div className="aspect-video bg-secondary">
+                      <img src={outfit.imageUrl} alt="AI generated outfit" className="w-full h-full object-cover" />
                     </div>
+                  )}
+                  <CardContent className="p-6">
+                    <div className="prose prose-sm max-w-none dark:prose-invert mb-4">
+                      <ReactMarkdown>{outfit.text}</ReactMarkdown>
+                    </div>
+                    <Button onClick={saveOutfit} variant="outline" className="rounded-full">
+                      <Heart className="h-4 w-4 mr-2" /> Save to Lookbook
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
             )}
-          </TabsContent>
-        </Tabs>
+          </motion.div>
+        )}
       </div>
     </div>
   );
