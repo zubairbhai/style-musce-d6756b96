@@ -155,17 +155,16 @@ Use markdown formatting. Be specific with colors, materials, and brands where ap
   const textData = await textResponse.json();
   const text = textData.choices?.[0]?.message?.content || "Unable to generate outfit.";
 
-  // Generate mood board image via AI Gateway
+  // Generate mood board image via Lovable AI Gateway
   let imageUrl: string | undefined;
   try {
-    const AI_GATEWAY_API_KEY = Deno.env.get("AI_GATEWAY_API_KEY");
-    if (AI_GATEWAY_API_KEY) {
+    if (LOVABLE_API_KEY) {
       const imagePrompt = `Fashion flat-lay mood board for a ${vibe || "stylish"} ${genderLabel} ${occasion} outfit for ${season}. ${palette ? `Color palette: ${palette}.` : ""} Editorial fashion photography, elegant arrangement on cream background, high-end ${genderLabel} fashion items, accessories, and textures. Ultra high resolution.`;
 
-      const imageResponse = await fetch("https://ai.gateway.stylesense.dev/v1/chat/completions", {
+      const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${AI_GATEWAY_API_KEY}`,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
