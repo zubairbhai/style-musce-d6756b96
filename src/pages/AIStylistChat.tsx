@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import {
   runFullClientAnalysis,
+  isNonHuman,
   OCCASION_OPTIONS,
   type StructuredAnalysis,
   type UserIntent,
@@ -127,10 +128,37 @@ const AIStylistChat = () => {
 
   const runAnalysisPipeline = async (_imageUrl: string, imageDataUrl: string) => {
     setAnalysisPhase("analyzing");
-    addMessage("assistant", "🔍 **Analyzing your outfit** — scanning zones, extracting colors, classifying style...\n\n_This runs 100% client-side — free & unlimited!_");
+    addMessage("assistant", "🔍 **Analyzing your image** — first checking if a person is present...\n\n_This runs 100% client-side — free & unlimited!_");
 
     // Full client-side multi-zone analysis (no API calls needed)
-    const structured = await runFullClientAnalysis(imageDataUrl);
+    const result = await runFullClientAnalysis(imageDataUrl);
+
+    // ── Non-human gate ────────────────────────────────────────────
+    if (isNonHuman(result)) {
+      const confPct = Math.round(result.confidence * 100);
+      const msg = `## 🚫 This is not a human.
+
+**Detected:** ${result.object_guess}
+**Confidence:** ${confPct}%
+
+> ${result.reason}
+
+I'm a fashion stylist — I can only analyze outfits when there's a person in the photo. No clothing, skin tone, or body features were detected.
+
+**Please upload a photo of a person wearing an outfit** so I can give you styling recommendations. ✨`;
+
+      setMessages((prev) => {
+        const filtered = prev.filter(
+          (m) => !(m.role === "assistant" && (m.content.includes("Analyzing") || m.content.includes("Building")))
+        );
+        return [...filtered, { role: "assistant" as const, content: msg }];
+      });
+      setAnalysisPhase("idle");
+      setIsLoading(false);
+      return;
+    }
+
+    const structured = result;
 
     setAnalysisPhase("extracting-colors");
     updateLastAssistant("🎨 **Building your complete style profile...**\n\n_Classifying garments, detecting accessories, mapping color palette..._");
