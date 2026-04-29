@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import {
   runFullClientAnalysis,
+  isNonHuman,
   OCCASION_OPTIONS,
   type StructuredAnalysis,
   type UserIntent,
