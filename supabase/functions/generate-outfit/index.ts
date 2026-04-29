@@ -102,9 +102,9 @@ async function handleProductSearch(query: string, limit: number): Promise<Respon
 }
 
 async function handleOutfitGeneration(body: any): Promise<Response> {
-  const { occasion, season, palette, vibe, gender } = body;
-  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-  if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
+  const { occasion, season, palette, vibe, gender, analysisContext } = body;
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
   const genderLabel = gender === "male" ? "men's" : "women's";
 
@@ -113,6 +113,7 @@ async function handleOutfitGeneration(body: any): Promise<Response> {
 - Season: ${season}
 ${palette ? `- Color Palette: ${palette}` : ""}
 ${vibe ? `- Style Vibe: ${vibe}` : ""}
+${analysisContext ? `\n\nPrior outfit analysis of the user (use as inspiration & avoid repeating their current pieces):\n${String(analysisContext).slice(0, 2000)}` : ""}
 
 Provide:
 1. A creative outfit name/title
@@ -126,14 +127,14 @@ Provide:
 
 Use markdown formatting. Be specific with colors, materials, and brands where appropriate. Tailor all items specifically for ${genderLabel} fashion.`;
 
-  const textResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const textResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "arcee-ai/trinity-large-preview:free",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: "You are StyleSense, an expert AI fashion stylist. Provide detailed, specific outfit recommendations with rich formatting." },
         { role: "user", content: prompt },
