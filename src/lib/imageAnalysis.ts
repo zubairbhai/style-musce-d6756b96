@@ -648,11 +648,114 @@ export function extractRegionColor(
  * Splits the image into zones, extracts colors, infers garments, and builds
  * a rich structured analysis — all without any API calls.
  */
-export function runFullClientAnalysis(imageSrc: string): Promise<StructuredAnalysis> {
+// ─── Human detection (free, client-side) ─────────────────────────────
+// Combines (a) browser FaceDetector when available, and (b) a skin-pixel
+// ratio + dominant-color heuristic to decide if the subject is human.
+
+interface HumanDetectionResult {
+  isHuman: boolean;
+  confidence: number; // confidence in the decision
+  skinRatio: number;
+  faceFound: boolean;
+  greenRatio: number;
+  grayRatio: number;
+  topDominant: { r: number; g: number; b: number; pct: number } | null;
+}
+
+async function detectHuman(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  img: HTMLImageElement
+): Promise<HumanDetectionResult> {
+  // (a) Try native FaceDetector (Chromium / some mobile)
+  let faceFound = false;
+  try {
+    // @ts-expect-error - experimental API
+    if (typeof window !== "undefined" && "FaceDetector" in window) {
+      // @ts-expect-error - experimental API
+      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+      const faces = await detector.detect(img).catch(() => []);
+      if (Array.isArray(faces) && faces.length > 0) faceFound = true;
+    }
+  } catch { /* ignore */ }
+
+  // (b) Whole-image color profile
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let skin = 0, green = 0, gray = 0, total = 0;
+  // bucket dominant colors at low resolution
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel (RGBA stride 4*4)
+    const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+    if (a < 128) continue;
+    total++;
+    // Skin heuristic (broad, covers fair → dark)
+    if (
+      r > 60 && g > 35 && b > 15 &&
+      r > b && (r - g) < 90 && Math.abs(r - g) < 90 &&
+      r < 250
+    ) skin++;
+    // Vegetation / grass / leaves
+    if (g > r + 15 && g > b + 10 && g > 60) green++;
+    // Gray / metallic / wall
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx - mn < 18 && mx > 30 && mx < 230) gray++;
+
+    const bk = `${r >> 5}-${g >> 5}-${b >> 5}`;
+    buckets.set(bk, (buckets.get(bk) || 0) + 1);
+  }
+
+  const skinRatio = total ? skin / total : 0;
+  const greenRatio = total ? green / total : 0;
+  const grayRatio = total ? gray / total : 0;
+
+  let topDominant: HumanDetectionResult["topDominant"] = null;
+  let topCount = 0;
+  for (const [k, c] of buckets) {
+    if (c > topCount) {
+      topCount = c;
+      const [rb, gb, bb] = k.split("-").map(Number);
+      topDominant = { r: rb * 32 + 16, g: gb * 32 + 16, b: bb * 32 + 16, pct: c / total };
+    }
+  }
+
+  // Decision logic
+  let isHuman = false;
+  let confidence = 0.5;
+  if (faceFound) {
+    isHuman = true;
+    confidence = 0.95;
+  } else if (skinRatio >= 0.06 && greenRatio < 0.45) {
+    // Reasonable amount of skin and not overwhelmingly green (vegetation)
+    isHuman = true;
+    confidence = Math.min(0.85, 0.55 + skinRatio);
+  } else {
+    isHuman = false;
+    confidence = Math.min(0.95, 0.55 + Math.max(greenRatio, 1 - skinRatio * 4));
+  }
+
+  return { isHuman, confidence, skinRatio, faceFound, greenRatio, grayRatio, topDominant };
+}
+
+function guessNonHumanObject(d: HumanDetectionResult): string {
+  if (d.greenRatio > 0.35) return "Plant / Tree / Vegetation";
+  if (d.grayRatio > 0.45) return "Object / Building / Material";
+  const c = d.topDominant;
+  if (c) {
+    const [hh, ss, ll] = rgbToHsl(c.r, c.g, c.b);
+    if (ll < 18) return "Dark Object";
+    if (ll > 85 && ss < 15) return "Light / Plain Object";
+    if (hh >= 15 && hh < 50 && ll < 55) return "Wood / Brown Object";
+    if (hh >= 180 && hh < 260) return "Sky / Water / Blue Object";
+  }
+  return "Non-human Object";
+}
+
+export function runFullClientAnalysis(imageSrc: string): Promise<AnalysisOutcome> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => {
+    img.onload = async () => {
       const canvas = document.createElement("canvas");
       const w = img.naturalWidth;
       const h = img.naturalHeight;
@@ -664,6 +767,22 @@ export function runFullClientAnalysis(imageSrc: string): Promise<StructuredAnaly
         return;
       }
       ctx.drawImage(img, 0, 0);
+
+      // ── Gate: human detection ──────────────────────────────────────
+      const human = await detectHuman(ctx, w, h, img);
+      console.log("[HumanDetection]", human);
+      if (!human.isHuman) {
+        const guess = guessNonHumanObject(human);
+        resolve({
+          is_human: false,
+          object_guess: guess,
+          reason: human.faceFound
+            ? "No face detected and low skin-pixel ratio."
+            : `Low skin-pixel ratio (${(human.skinRatio * 100).toFixed(1)}%)${human.greenRatio > 0.3 ? `, high vegetation tones (${(human.greenRatio * 100).toFixed(0)}%)` : ""}.`,
+          confidence: human.confidence,
+        });
+        return;
+      }
 
       // 1. Extract skin tone from head region
       const headData = ctx.getImageData(
