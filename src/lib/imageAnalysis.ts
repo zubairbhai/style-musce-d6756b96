@@ -62,6 +62,19 @@ export interface UserIntent {
   useCurrentOutfit: boolean;
 }
 
+export interface NonHumanResult {
+  is_human: false;
+  object_guess: string;
+  reason: string;
+  confidence: number; // 0..1 confidence that subject is NON-human
+}
+
+export type AnalysisOutcome = StructuredAnalysis | NonHumanResult;
+
+export function isNonHuman(r: AnalysisOutcome): r is NonHumanResult {
+  return (r as NonHumanResult).is_human === false;
+}
+
 export interface FullAnalysisPayload {
   analysisData: StructuredAnalysis;
   userIntent: UserIntent;
