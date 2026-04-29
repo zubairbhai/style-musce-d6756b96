@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      generation_jobs: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          input: Json
+          kind: string
+          output_image_url: string | null
+          output_text: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          kind?: string
+          output_image_url?: string | null
+          output_text?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          kind?: string
+          output_image_url?: string | null
+          output_text?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
